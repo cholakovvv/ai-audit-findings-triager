@@ -65,6 +65,15 @@ These protocols are usually already deployed and upgradeable, and **storage pers
 
 The verdict (real / not real) gets an adversarial pass and is reliable. Severity, left to a single by-feel assignment, is the axis this skill most often gets wrong — and it errs in *both* directions (inflating fee-loss and self-clearing reverts, deflating permanent fund-freezes). So severity gets the same treatment as the verdict: it is not final until it has survived **Phase E2**, where you argue it one level down and one level up and map it to a named Immunefi row. A severity you never challenged is a guess.
 
+### 8. Separate your sources: a dev thread proves *whether*, never *how bad*
+
+This is the single most important calibration rule, and violating it is the largest remaining source of error. Known-issues digests, sponsor/dev PR replies, and any "the team said…" context are strong evidence for **validity** — is it real, is it by-design, is it a dup. They are **not** evidence for **severity.** Sponsors systematically minimize impact ("we reconcile off-chain," "by design," "rare," "hard to trigger"), and dev enthusiasm ("nice catch," "Damn. Nice.") is not impact.
+
+- Use a dev / known-issue / sponsor source to inform the **verdict**; recompute **severity** yourself from on-chain impact via E2, as if the thread didn't exist.
+- **"By design / handled off-chain / expected revert" is a likelihood/context input — not a validity killer and not a severity floor.** The on-chain defect still scores on its own.
+- This applies to the **invoking prompt** too. If the task text or a digest hands you a severity ("likely High"; "Low/Info at most, do not inflate"), treat it as a claim to verify, not an answer to adopt. A pre-supplied severity is exactly where inherited sponsor bias enters — recompute it.
+- Only a *judge's final ruling* or an *independent prior audit* is a severity-grade source, and even then E2 recomputes and you flag disagreement rather than adopting.
+
 ---
 
 ## The batch pipeline
@@ -151,6 +160,7 @@ This is the close feedback loop. **Every drafted verdict gets challenged by its 
 
 - **Blue-team hat — "prove it's a false positive."** Assume the finding is wrong. Hunt for the specific line, check, modifier, or invariant that defeats the attack path. If you find it, cite it: that's a real INVALID with evidence. If you genuinely cannot find one after honest effort, that's strong evidence the bug is real.
   - **For solvency / accounting / reserve findings, one contradicting line is not enough.** These findings are usually about *reserve accounting* — is the disputed value backed, and netted out of what governance/LPs can withdraw? — not about whether money superficially reaches someone. Before an INVALID stands, trace the **full reserved-vs-withdrawable path**: is the value reserved (subtracted from withdrawable NAV / a liability counter), or is it double-counted / drainable? And make the red-team attempt the drain against the **strongest reading** of the finding. A citation that only refutes the naive reading ("the money does reach the trader") does **not** clear a finding whose actual claim is "NAV over-counts an unreserved liability." This is exactly the mistake that produced a real false rejection.
+  - **Likelihood may not erase impact (the gate that stops insolvency landing at Low).** For any LP-exit-vs-open-position-backing / redemption-vs-reserves finding, the reserved-vs-withdrawable trace is **mandatory and must complete before any severity call.** "Hard to front-run / gated by utilization / JIT-only / already-known class" are *likelihood* inputs; they may lower severity by at most one step — they may **not** demote a structural insolvency to Low. An insolvency that is hard to trigger is still an insolvency: High/Critical impact, reduced likelihood, never below High. Collapsing the impact axis with a likelihood argument (Principle 3) is precisely what landed a Critical-class, digest-flagged insolvency at Low in testing.
 - **Red-team hat — "prove it's real anyway."** Assume the finding is right. Construct the most concrete end-to-end exploit you can — specific caller, specific sequence, specific state, specific profit or damage. If you can build it, that's a real VALID. If every path you try dies on a check, that's strong evidence it's a false positive.
 
 **Reconcile:**
@@ -166,13 +176,13 @@ The point of the two hats is that most confident-but-wrong verdicts die here: a 
 Validity is now reliable *because* you verify it adversarially. Severity is unreliable *because*, left alone, it's assigned once by feel with nothing challenging it — and it errs in both directions. So challenge it the same way. This pass is not optional and it is where the majority of this skill's past errors would have been caught. For every VALID finding, do all four:
 
 - **Argue one level DOWN.** Strongest honest case it's *less* severe: the loss is bounded / self-healing (Sustainability Test) / revenue-not-principal / unclaimed-yield-not-at-rest-funds / single-user-not-systemic / needs a genuinely uncommon config or privilege. Ask directly: did I inflate because the writeup or the tool's label sounded scary?
-- **Argue one level UP.** Strongest honest case it's *worse*: the freeze is permanent not temporary / it's principal not yield / it upgrades into insolvency or a second-order theft / it's reachable by an unprivileged caller I assumed was privileged. Ask directly: did I soften a permanent fund-freeze or an unprivileged access break down to Medium?
+- **Argue one level UP.** Strongest honest case it's *worse*: the freeze is permanent not temporary / it's principal not yield / it upgrades into insolvency or a second-order theft / it's reachable by an unprivileged caller I assumed was privileged. Ask directly: did I soften a permanent fund-freeze or an unprivileged access break down to Medium? **The up-case only counts if it maps to a named row with a concrete, traced loss path** — a scary-sounding mechanism, a "lifetime waiver" theory, or a dev's "nice catch" is not an up-vote. If you can't trace the loss, the up-case fails and the lower tier stands.
 - **Map to a NAMED Immunefi row.** Point at the exact impact line in `references/immunefi-severity-v2.3.md` and the concrete loss path that satisfies it. If no row genuinely fits the loss path, the severity is lower than you think — "feels bad" is not a row.
 - **On a genuine tie between two tiers, default DOWN**, and record the boundary and what evidence would push it up. Auditors disagree by a level routinely; a defensible floor beats a confident guess, and it's honest about a contested call.
 
-Two calibration failures to hunt for **by name** — both are real, both have cost audits:
-- **Inflation:** operational / protocol-fee-revenue loss rated High (it's Medium at most — see Impact-Bucket Procedure); a self-clearing revert rated High (it's Low — Sustainability Test); the tool's scary label taken at face value.
-- **Deflation:** permanently stuck user collateral rated Medium (permanent freezing of funds is High/Critical); an unprivileged access-control break rated Medium because it "needs a specific state."
+Two calibration failures to hunt for **by name** — both are real, both have cost audits, and both most often enter through *inherited sponsor framing* (Principle 8):
+- **Inflation:** operational / protocol-fee-revenue loss rated High (it's Medium at most — see Impact-Bucket Procedure); a self-clearing revert rated High (it's Low — Sustainability Test); the tool's scary label or the dev's "nice catch" taken as severity.
+- **Deflation:** permanently stuck user collateral rated Medium (permanent freezing of funds is High/Critical); a structural insolvency demoted on a "hard to trigger" likelihood argument; anything softened because the dev said "by design / we handle it off-chain / rare." Those are context, not a severity floor.
 
 If E2 changes the severity, that's the system working — record the down/up reasoning in the finding's **Severity check** line.
 
@@ -190,7 +200,7 @@ Before writing the final report, review the whole set of committed verdicts as a
 
 - **Consistency**: did two similar findings get different verdicts or severities for no principled reason? Did finding #37 rely on an assumption finding #4 disproved? Reconcile against the shared ledger.
 - **Severity calibration**: line up all severities and sanity-check the distribution. A batch that is nearly all High is a red flag for inflation; a batch with no High on a fund-handling protocol is a red flag for deflation. Re-run E2's down/up on any outlier.
-- **External ground-truth reconciliation**: before emitting, check for an authoritative answer key — a contest issues tab (Code4rena / Sherlock / Cantina), a prior audit report, the client's known-issues list, a changelog, a `known_issues` file in the repo. If one exists and you can access it, reconcile every verdict **and severity** against it: where you disagree, re-examine and either correct or record *why* you still differ. Do not silently trust your own call when a ground-truth source is available. (Absent one, say so — don't invent it.)
+- **External ground-truth reconciliation (source-typed — this is where a naive "reconcile against the answer key" backfires).** Before emitting, check for an answer key: a contest issues tab, a prior audit, the client's known-issues list, a changelog, a `known_issues` file. Reconcile **validity** against it — a confirmed / dup / by-design signal is strong for the *verdict*. Do **not** reconcile *severity* against a **sponsor/dev** source: those minimize impact and will drag your ratings down (Principle 8). Keep your E2 severity; record the dev's framing only as context. Only a **judge-grade** source (a final contest ruling, an independent audit) may inform severity, and even then flag disagreements rather than adopting them. Absent any source, say so — don't invent one.
 - **`NEEDS_HUMAN_REVIEW` audit**: for every NHR, confirm you actually climbed the Investigation Ladder and there's a specific named missing fact or a specific hat-conflict. If either is missing, you escalated lazily — go back and resolve it. NHR is a scalpel, not a bucket.
 - **Missed-bug sweep**: for any INVALID, re-confirm you can cite the specific contradicting code. "I couldn't see how it works" is not grounds for INVALID — that's NHR. INVALID requires a citation.
 
@@ -202,6 +212,7 @@ Then emit the report.
 
 - **VALID** — a real vulnerability at a severity you verified in E2. Survived red-team as exploitable and blue-team couldn't defeat it. If its severity depends on a deployed value you couldn't resolve, it's still VALID but its severity is stated **conditional on that value** (Principle 6), not worst-cased.
 - **INVALID** — a false positive. You can **cite the specific code** that contradicts the finding's claim, and red-team couldn't build the exploit against its *strongest* reading. Also used for explicit Immunefi out-of-scope categories (cite the category). INVALID must always rest on a citation — if you can only say "I couldn't confirm it works," that's `NEEDS_HUMAN_REVIEW`, not INVALID. For accounting/solvency findings, the citation must address the *reserve* claim, not just the naive one (Phase E1 blue-team).
+  - **When an INVALID finding still contains a real bug, split it — don't bury the residual.** If you correctly refute the headline exploit but a genuine lower-severity defect remains (a real Medium hiding under a false Critical — e.g. the live drain is a false positive but a newly-listed-pair variant still waives losses), emit that residual as its **own VALID finding at its own E2-verified severity.** Do not demote it to a "Low residual" footnote inside the INVALID. A correct INVALID-on-the-headline must never swallow a valid Medium — that turns a right call into a missed finding.
 - **NEEDS_HUMAN_REVIEW** — reserved for genuine irreducible uncertainty: a load-bearing fact the Investigation Ladder could not resolve, or a red/blue conflict that survives investigation. Every NHR names the exact blocker. This should be the *minority* of a healthy batch.
 
 ## Severity matrix
@@ -314,6 +325,9 @@ These are prose reminders; the *enforcement* is the E2 down/up pass and the Impa
 20. **"Collateral is stuck but call it Medium."** → permanent inability to recover user funds is "permanent freezing of funds" → **High/Critical**. Do not soften a freeze. (Deflation trap #1.)
 21. **"The slot has no setter, so it's zero, so max impact."** → an unset value on an upgradeable contract is UNKNOWN, not zero (Principle 6). Resolve it (tests first) or rate conditional-on-value; never worst-case it. (The exact error that mis-stamped a Medium as Critical.)
 22. **"It needs a specific state, so downgrade."** → if the state is reachable by an unprivileged caller through a normal entry point, don't downgrade; that's a likelihood note, not a severity cut. (Deflation trap #2.)
+23. **"The dev said 'by design' / 'we handle it off-chain' / 'rare.'"** → likelihood/context, not a validity killer and not a severity floor. Score the on-chain defect on its own (Principle 8). This is the #1 cause of under-rating in testing.
+24. **"The dev reacted 'nice catch' / the mechanism sounds scary / it's a known class."** → not severity. Map to a named row with a traced loss path or it doesn't move up.
+25. **"Hard to front-run / gated / JIT, so it's Low."** → likelihood can't erase impact. A structural insolvency or fund-loss stays at its impact floor regardless of trigger difficulty (Principle 3; E1 solvency gate).
 
 ---
 
@@ -338,8 +352,10 @@ Batch these across findings where you can, so the user answers a short list once
 - [ ] Every config/storage value a verdict or severity depends on was **resolved from tests/docs**, or the severity is stated conditional on it — never worst-cased from an assumed default (Principle 6).
 - [ ] Impact and likelihood assessed independently; every freeze/DoS finding passed the Sustainability Test.
 - [ ] Every verdict survived E1 (red/blue). Every accounting/solvency INVALID addressed the reserve claim, not just the naive one.
-- [ ] Every VALID severity survived **E2** (argued down and up, mapped to a named Immunefi row, tie → down). Severity checked for the named inflation/deflation traps.
+- [ ] Every VALID severity survived **E2** (argued down and up, up-case mapped to a named row with a traced loss, tie → down). Severity computed independently — **no dev/sponsor/known-issue framing or pre-supplied severity was adopted** (Principle 8).
+- [ ] No likelihood argument was allowed to demote a structural insolvency/fund-loss below its impact floor; every solvency finding ran the reserved-vs-withdrawable trace first.
+- [ ] Every INVALID that still hides a real bug was **split** — the residual emitted as its own correctly-rated VALID finding, not a footnote.
 - [ ] Every INVALID cites specific contradicting code. Every NHR names a specific unresolved fact or a surviving hat-conflict.
-- [ ] Batch swept for consistency and severity calibration; **reconciled against any external ground-truth source** (or noted that none was available); NHR count is a minority, each justified.
+- [ ] Batch swept for consistency and severity calibration; **validity** reconciled against any ground-truth source, **severity** only against a judge-grade source (never a sponsor digest); NHR count is a minority, each justified.
 - [ ] If subagents were used, each ran the full Ladder (tests + docs) and E2 on its own findings, with no pre-restricted file scope.
 - [ ] Dashboard + per-finding entries written to `triager-issues.md`.
